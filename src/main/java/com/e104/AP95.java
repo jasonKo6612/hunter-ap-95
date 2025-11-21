@@ -15,11 +15,7 @@ package com.e104;
  * History：<br>
  * 2016/09/05 update by Peter.Tsai at 調整AP架構<br>
  */  
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -29,6 +25,8 @@ import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import com.ht.util.XmlGlobalHandlerNewAP;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 //import com.ht.util.XmlLocalHandlerNewAP;
 
 /**
@@ -39,14 +37,15 @@ import com.ht.util.XmlGlobalHandlerNewAP;
  * Copyright (c) 104hunter All Rights Reserved.<br>
  */
 public class AP95 {
+    private static final Logger logger = LoggerFactory.getLogger(AP95.class);
     private static XmlGlobalHandlerNewAP globalXML = null;
     //private static XmlLocalHandlerNewAP localXML = null;
 
     // Log
-    private static File fLogFile = null;
-    private static BufferedWriter bwLogFile = null;
-    private static PrintWriter pw = null;
-    private static SimpleDateFormat dateFormat = new SimpleDateFormat( "yyyy/MM/dd hh:mm:ss" );
+//    private static File fLogFile = null;
+//    private static BufferedWriter bwLogFile = null;
+//    private static PrintWriter pw = null;
+//    private static SimpleDateFormat dateFormat = new SimpleDateFormat( "yyyy/MM/dd hh:mm:ss" );
 
     /**
      * <summary>查詢資料</summary><br>
@@ -78,10 +77,10 @@ public class AP95 {
             //pstJobbank = conJobbank.prepareStatement( "Update jobon set firstdate=now() where custno='11111119000' and password=?" );
 
             String strSQL = "Select Caid,Web_Start_Date from `Case` Where Web_Status104=2 and round(datediff(now(),Web_Start_Date))>60 ";
-			bwLogFile.write( "刊登超過60天之職缺SQL：" + strSQL + "\r\n" );
+			logger.info("刊登超過60天之職缺SQL：{}", strSQL);
 			rsHun = stHun.executeQuery(strSQL);
 			while( rsHun.next() ) {
-                bwLogFile.write( "Caid：" + rsHun.getString( "caid" ) + " , Web_Start_Date：" + rsHun.getString( "Web_Start_Date" ) + "\r\n" );
+                logger.info("Caid：{} , Web_Start_Date：{}", rsHun.getString("caid"), rsHun.getString("Web_Start_Date"));
                 pstHun1.clearParameters();
                 pstHun1.setString( 1, rsHun.getString( "caid" ) );
                 pstHun1.executeUpdate();
@@ -115,26 +114,23 @@ public class AP95 {
         //    bwLogFile.write( "queryData() exception :\r\n" );
         //    e.printStackTrace( pw );
         } catch( Exception e ) {
-            bwLogFile.write( "##不成功##\r\n" );
-            bwLogFile.write( "queryData() exception :\r\n" );
-            e.printStackTrace( pw );
+            logger.error("##不成功##", e);
+            logger.error("queryData() exception", e);
         } finally {
             if( rsHun != null ) {
                 try {
                     rsHun.close();
                 } catch( SQLException e ) {
-                    bwLogFile.write( "##不成功##\r\n" );
-                    bwLogFile.write( "queryData() exception :\r\n" );
-                    e.printStackTrace( pw );
+                    logger.error("##不成功##", e);
+                    logger.error("queryData() exception - rsHun.close()", e);
                 }
             }
             if( stHun != null ) {
                 try {
                     stHun.close();
                 } catch( SQLException e ) {
-                    bwLogFile.write( "##不成功##\r\n" );
-                    bwLogFile.write( "queryData() exception :\r\n" );
-                    e.printStackTrace( pw );
+                    logger.error("##不成功##", e);
+                    logger.error("queryData() exception - stHun.close()", e);
                 }
             }
 			if( pstHun1 != null ) {
@@ -154,9 +150,8 @@ public class AP95 {
                 try {
                     conHun.close();
                 } catch( SQLException e ) {
-                    bwLogFile.write( "##不成功##\r\n" );
-                    bwLogFile.write( "queryData() exception :\r\n" );
-                    e.printStackTrace( pw );
+                    logger.error("##不成功##", e);
+                    logger.error("queryData() exception - conHun.close()", e);
                 }
             }
 			
@@ -183,28 +178,24 @@ public class AP95 {
         }
     }
 
-    public static void main( String[] args ) throws IOException {
+    public static void main( String[] args ) {
         try {
             // 設定xml
             //localXML = XmlLocalHandlerNewAP.performParser();
             globalXML = XmlGlobalHandlerNewAP.performParser( 95, "" );
             // 設定file
-            fLogFile = new File( globalXML.getGlobalTagValue( "apini.logpath" ) + "AP95_" + new SimpleDateFormat( "yyyyMMdd" ).format( new Date() ) + ".log" );
-            fLogFile.createNewFile();
-            bwLogFile = new BufferedWriter( new FileWriter( fLogFile.getPath(), true ) );
-            pw = new PrintWriter( bwLogFile );
-            bwLogFile.write( "========== START 刊登超過60天時，自動將該職缺關閉後再開啟 : " + dateFormat.format( new Date() ) + " ==========\r\n" );
+//            fLogFile = new File( globalXML.getGlobalTagValue( "apini.logpath" ) + "AP95_" + new SimpleDateFormat( "yyyyMMdd" ).format( new Date() ) + ".log" );
+//            fLogFile.createNewFile();
+//            bwLogFile = new BufferedWriter( new FileWriter( fLogFile.getPath(), true ) );
+//            pw = new PrintWriter( bwLogFile );
+            logger.info("========== START 刊登超過60天時，自動將該職缺關閉後再開啟 ==========");
             AP95 ap95 = new AP95();
             ap95.queryData();
-            bwLogFile.write( "========== END 刊登超過60天時，自動將該職缺關閉後再開啟 : " + dateFormat.format( new Date() ) + " ==========\r\n" );
+            logger.info("========== END 刊登超過60天時，自動將該職缺關閉後再開啟 ==========");
         } catch( Exception e ) {
-            bwLogFile.write( "##不成功##\r\n" );
-            bwLogFile.write( "main exception :\r\n" );
-            e.printStackTrace( pw );
+            logger.error("##不成功##", e);
+            logger.error("main exception", e);
         } finally {
-            // file close
-            bwLogFile.close();
-            fLogFile = null;
             //localXML = null;
             globalXML = null;
         }
