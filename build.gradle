@@ -1,0 +1,62 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '2.7.18'
+    id 'io.spring.dependency-management' version '1.0.15.RELEASE'
+}
+
+ext {
+    projectName = 'AP95'
+    mainClassName = "com.e104.${projectName}"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation files('/Users/jason.ko/Work/Patch_lib/HTUtil.jar')
+
+    implementation 'mysql:mysql-connector-java:5.1.49'
+    implementation 'org.jdom:jdom:1.1'
+}
+// 使用 Gradle 標準目錄結構
+// src/main/java - Java 源碼
+// src/main/resources - 資源檔案 (logback.xml)
+
+// Configuration for Spring Boot executable JAR
+bootJar {
+    mainClass = mainClassName
+    archiveClassifier = ''
+    archiveBaseName = projectName
+    archiveVersion = ''
+
+    // Ensure the task always runs (disable up-to-date checks) so we reliably overwrite the JAR
+    outputs.upToDateWhen { false }
+
+    // logback.xml 會被打包進 jar 作為預設配置
+    // 如果需要外部覆蓋，可以使用 -Dlogback.configurationFile 參數
+
+    // Copy logback.xml and run.sh to libs directory after JAR creation
+    doLast {
+        copy {
+            from file('run.sh')
+            into file('build/libs')
+        }
+    }
+}
+
+// Alternative jar task (disabled to avoid conflicts)
+jar {
+    enabled = false
+}
+
+// Ensure the main class is set for Spring Boot
+springBoot {
+    mainClass = mainClassName
+}
