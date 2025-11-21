@@ -22,9 +22,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import com.ht.util.XmlGlobalHandlerNewAP;
+import java.util.Properties;
+
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.net.SMTPAppender;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.Appender;
+//import com.ht.util.XmlGlobalHandlerNewAP;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 //import com.ht.util.XmlLocalHandlerNewAP;
@@ -38,7 +42,10 @@ import org.slf4j.LoggerFactory;
  */
 public class AP95 {
     private static final Logger logger = LoggerFactory.getLogger(AP95.class);
-    private static XmlGlobalHandlerNewAP globalXML = null;
+    private static Properties config = null;
+    private static Connection con = null;
+    private String nodeEnv = "";
+//    private static XmlGlobalHandlerNewAP globalXML = null;
     //private static XmlLocalHandlerNewAP localXML = null;
 
     // Log
@@ -54,7 +61,7 @@ public class AP95 {
      * @throws IOException
      */
     private void queryData() throws Exception {
-        Connection conHun = null;
+//        Connection conHun = null;
         Statement stHun = null;
 		PreparedStatement pstHun1 = null;
         PreparedStatement pstHun2 = null;
@@ -65,14 +72,14 @@ public class AP95 {
         ResultSet rsHun = null;
         try {
             // 註冊、建立ORACLE Connection
-            Class.forName( globalXML.getGlobalTagValue( "dsn1.driver" ) );
+//            Class.forName( globalXML.getGlobalTagValue( "dsn1.driver" ) );
             //Class.forName( globalXML.getGlobalTagValue( "dsn2.driver" ) );
-            conHun = DriverManager.getConnection( globalXML.getGlobalTagValue( "dsn1.database" ), globalXML.getGlobalTagValue( "dsn1.username" ), globalXML.getGlobalTagValue( "dsn1.password" ) );
-            stHun = conHun.createStatement();
-            pstHun1 = conHun.prepareStatement( "Update `CASE` set Web_Start_Date=date_format(now(),'%Y/%m/%d') where caid=?" );
-            pstHun2 = conHun.prepareStatement( "Update `CASE_CN` set Web_Start_Date=date_format(now(),'%Y/%m/%d') where caid=?" );
-			pstHun3 = conHun.prepareStatement( "Update `CASE_EN` set Web_Start_Date=date_format(now(),'%Y/%m/%d') where caid=?" );
-			pstCaseWeb = conHun.prepareStatement( "update CASE_WEB set PROGRESS = 'U', PROGRESS_DATE = now() where caid = ? and ((ROLE = 1 and JOBNO_F > 0) or (ROLE = 2 and JOBNO_H > 0))" );
+//            conHun = DriverManager.getConnection( globalXML.getGlobalTagValue( "dsn1.database" ), globalXML.getGlobalTagValue( "dsn1.username" ), globalXML.getGlobalTagValue( "dsn1.password" ) );
+            stHun = con.createStatement();
+            pstHun1 = con.prepareStatement( "Update `CASE` set Web_Start_Date=date_format(now(),'%Y/%m/%d') where caid=?" );
+            pstHun2 = con.prepareStatement( "Update `CASE_CN` set Web_Start_Date=date_format(now(),'%Y/%m/%d') where caid=?" );
+			pstHun3 = con.prepareStatement( "Update `CASE_EN` set Web_Start_Date=date_format(now(),'%Y/%m/%d') where caid=?" );
+			pstCaseWeb = con.prepareStatement( "update CASE_WEB set PROGRESS = 'U', PROGRESS_DATE = now() where caid = ? and ((ROLE = 1 and JOBNO_F > 0) or (ROLE = 2 and JOBNO_H > 0))" );
 			//conJobbank = DriverManager.getConnection( globalXML.getGlobalTagValue( "dsn2.database" ), globalXML.getGlobalTagValue( "dsn2.username" ), globalXML.getGlobalTagValue( "dsn2.password" ) );
             //pstJobbank = conJobbank.prepareStatement( "Update jobon set firstdate=now() where custno='11111119000' and password=?" );
 
@@ -114,23 +121,23 @@ public class AP95 {
         //    bwLogFile.write( "queryData() exception :\r\n" );
         //    e.printStackTrace( pw );
         } catch( Exception e ) {
-            logger.error("##不成功##", e);
+//            logger.error("##不成功##", e);
             logger.error("queryData() exception", e);
         } finally {
             if( rsHun != null ) {
                 try {
                     rsHun.close();
                 } catch( SQLException e ) {
-                    logger.error("##不成功##", e);
-                    logger.error("queryData() exception - rsHun.close()", e);
+//                    logger.error("##不成功##", e);
+                    logger.warn("queryData() exception - rsHun.close()", e);
                 }
             }
             if( stHun != null ) {
                 try {
                     stHun.close();
                 } catch( SQLException e ) {
-                    logger.error("##不成功##", e);
-                    logger.error("queryData() exception - stHun.close()", e);
+//                    logger.error("##不成功##", e);
+                    logger.warn("queryData() exception - stHun.close()", e);
                 }
             }
 			if( pstHun1 != null ) {
@@ -146,12 +153,12 @@ public class AP95 {
         		pstCaseWeb.close();
             }
 
-            if( conHun != null ) {
+            if( con != null ) {
                 try {
-                    conHun.close();
+                    con.close();
                 } catch( SQLException e ) {
-                    logger.error("##不成功##", e);
-                    logger.error("queryData() exception - conHun.close()", e);
+//                    logger.error("##不成功##", e);
+                    logger.warn("queryData() exception - conHun.close()", e);
                 }
             }
 			
@@ -178,11 +185,101 @@ public class AP95 {
         }
     }
 
+    /**
+     * 設定環境變數與讀取設定檔
+     *
+     * @throws IOException
+     */
+    private void setEnvProperties() throws IOException {
+        nodeEnv = System.getenv("NODE_ENV");
+        if (nodeEnv == null || nodeEnv.isEmpty()) {
+            nodeEnv = "";
+        }
+        logger.info("nodeEnv = {}", nodeEnv);
+
+        String filePath = "/opt/.hunter-env.properties";
+        Properties properties = new Properties();
+        try (FileInputStream fis = new FileInputStream(filePath)) {
+            properties.load(fis);
+            logger.info("成功載入設定檔: {}", filePath);
+        } catch (IOException e) {
+            logger.error("無法讀取設定檔: {}", filePath, e);
+            throw e;
+        }
+        config = properties;
+    }
+
+    /**
+     * 建立資料庫連線
+     *
+     * @param account 屬性鍵值前綴
+     * @return Connection object
+     * @throws SQLException
+     */
+    private Connection createDatabaseConnection(String account) throws SQLException {
+        logger.info("建立資料庫連線: {}", account);
+        String host = config.getProperty(account + ".credential.host");
+        String port = config.getProperty(account + ".credential.port");
+        String database = config.getProperty(account + ".credential.dbClusterIdentifier");
+        String url = String.format("jdbc:mysql://%s:%s/%s?useUnicode=true&characterEncoding=utf8&useSSL=false", host, port, database);
+        logger.info("建立資料庫連線 URL: {}", url);
+        String username = config.getProperty(account + ".credential.username");
+        String password = config.getProperty(account + ".credential.password");
+        logger.info("建立資料庫連線 username: {}", username);
+        logger.info("建立資料庫連線 password: {}", (password != null ? new String(new char[password.length()]).replace("\0", "*") : "null"));
+
+        return DriverManager.getConnection(url, username, password);
+    }
+
+    /**
+     * 設定資料庫連線
+     *
+     * @throws Exception
+     */
+    private void setDataBaseConnection() throws Exception {
+        Class.forName("com.mysql.jdbc.Driver");
+        con = createDatabaseConnection("m008001_b0019_ai");
+    }
+
+    /**
+     * 印出 Logback SMTP Appender 配置資訊
+     */
+    private void printLogbackSmtpConfig() {
+        try {
+            LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
+            for (ch.qos.logback.classic.Logger logger : loggerContext.getLoggerList()) {
+                java.util.Iterator<Appender<ILoggingEvent>> iter = logger.iteratorForAppenders();
+                while (iter.hasNext()) {
+                    Appender<ch.qos.logback.classic.spi.ILoggingEvent> appender = iter.next();
+                    if (appender instanceof SMTPAppender) {
+                        SMTPAppender smtpAppender = (SMTPAppender) appender;
+                        logger.info("========== Logback SMTP Appender 配置 ==========");
+                        logger.info("  Appender Name: {}", smtpAppender.getName());
+                        logger.info("  SMTP Host: {}", smtpAppender.getSmtpHost());
+                        logger.info("==============================================");
+                        return; // 找到後就離開
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("無法取得 SMTP Appender 配置資訊", e);
+        }
+    }
+
+    public AP95() throws Exception {
+        // 設定環境變數與讀取設定檔
+        setEnvProperties();
+        // 設定資料庫連線
+        setDataBaseConnection();
+        // 印出 Logback SMTP Appender 配置
+        printLogbackSmtpConfig();
+    }
+
     public static void main( String[] args ) {
         try {
             // 設定xml
             //localXML = XmlLocalHandlerNewAP.performParser();
-            globalXML = XmlGlobalHandlerNewAP.performParser( 95, "" );
+//            globalXML = XmlGlobalHandlerNewAP.performParser( 95, "" );
             // 設定file
 //            fLogFile = new File( globalXML.getGlobalTagValue( "apini.logpath" ) + "AP95_" + new SimpleDateFormat( "yyyyMMdd" ).format( new Date() ) + ".log" );
 //            fLogFile.createNewFile();
@@ -193,11 +290,12 @@ public class AP95 {
             ap95.queryData();
             logger.info("========== END 刊登超過60天時，自動將該職缺關閉後再開啟 ==========");
         } catch( Exception e ) {
-            logger.error("##不成功##", e);
+//            logger.error("##不成功##", e);
             logger.error("main exception", e);
         } finally {
             //localXML = null;
-            globalXML = null;
+//            globalXML = null;
+            config = null;
         }
     }
 }
